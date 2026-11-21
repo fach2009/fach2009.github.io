@@ -21,6 +21,8 @@
   /* Lo que aparece y desaparece: menú (barra de canales) e información del canal */
   .capa { opacity: 0; transition: opacity 0.35s; }
   body.menu .capa, body.info #info { opacity: 1; }
+  /* Sin menú también se esconde el puntero (vuelve con el menú al mover las flechas) */
+  body:not(.menu), body:not(.menu) * { cursor: none !important; }
 
   /* Información del canal, arriba a la izquierda */
   #info { position: absolute; left: 1.6rem; top: 1.2rem; display: flex; align-items: center;
