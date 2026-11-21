@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Señal Chile TV</title>
+<style>
+  /*
+   * Pensado para el navegador de la TV onn (Chrome 47, 1280x720, sin variables CSS).
+   * Ese navegador usa las flechas para mover un puntero (como un mouse) y OK para hacer clic,
+   * por eso todo está junto abajo y los botones son grandes.
+   */
+  html { font-size: 20px; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { color: #fff; font-family: Arial, Helvetica, sans-serif; }
+  button { font-family: Arial, Helvetica, sans-serif; color: #fff; cursor: pointer; outline: none; }
+
+  #video { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #000; object-fit: contain; }
+
+  /* Lo que aparece y desaparece: menú (barra de canales) e información del canal */
+  .capa { opacity: 0; transition: opacity 0.35s; }
+  body.menu .capa, body.info #info { opacity: 1; }
+
+  /* Información del canal, arriba a la izquierda */
+  #info { position: absolute; left: 1.6rem; top: 1.2rem; display: flex; align-items: center;
+          background: rgba(8, 14, 26, 0.86); border-radius: 0.6rem; padding: 0.5rem 1rem 0.5rem 0.5rem; max-width: 46rem; }
+  #info .logo { width: 5.2rem; height: 2.9rem; }
+  #infoNum { font-size: 2rem; font-weight: bold; margin: 0 0.8rem 0 0.9rem; color: #ffd166; }
+  #infoNombre { font-size: 1.2rem; font-weight: bold; white-space: nowrap; }
+  #infoDetalle { font-size: 0.75rem; color: #c9d4e3; margin-top: 0.15rem; white-space: nowrap; }
+  .vivo { color: #ff5a66; font-weight: bold; }
+  #infoNota { color: #ffd166; font-weight: bold; }
+
+  /* Reloj y pantalla completa, arriba a la derecha */
+  #arriba { position: absolute; right: 1.6rem; top: 1.2rem; text-align: right; }
+  #reloj { font-size: 1.5rem; font-weight: bold; text-shadow: 0 0.1rem 0.4rem #000; }
+  #btnCompleta { margin-top: 0.4rem; font-size: 0.75rem; padding: 0.45rem 0.8rem; border-radius: 0.4rem;
+                 background: rgba(8, 14, 26, 0.86); border: 0.12rem solid rgba(255, 255, 255, 0.25); }
+  #btnCompleta:hover { border-color: #ffd166; }
+
+  /* Barra de canales, abajo */
+  #barra { position: absolute; left: 0; right: 0; bottom: 0; padding: 2.2rem 1.6rem 1rem 1.6rem;
+           background: linear-gradient(to top, rgba(0, 0, 0, 0.94), rgba(0, 0, 0, 0.75) 60%, rgba(0, 0, 0, 0)); }
+  #consejo { font-size: 0.72rem; color: #c9d4e3; margin: 0 0 0.45rem 0.1rem; }
+  #fila { display: flex; align-items: flex-end; justify-content: space-between; }
+  #tiles { display: flex; }
+
+  .logo { background: #f4f6f9; border-radius: 0.4rem; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .logo img { max-width: 84%; max-height: 78%; }
+  .logo span { color: #14213d; font-weight: bold; font-size: 0.8rem; text-align: center; }
+
+  .tile { width: 7.05rem; margin-right: 0.45rem; padding: 0; background: transparent; border: 0;
+          text-align: left; transition: transform 0.15s; }
+  .tile .logo { width: 100%; height: 4.1rem; border: 0.2rem solid transparent; }
+  .tile .nombre { display: block; margin-top: 0.3rem; font-size: 0.72rem; font-weight: bold; white-space: nowrap;
+                  overflow: hidden; text-overflow: ellipsis; color: #e6ecf5; }
+  .tile .nombre b { color: #ffd166; margin-right: 0.25rem; }
+  .tile.actual .logo { border-color: #e63946; }
+  .tile.actual .nombre { color: #fff; }
+  .tile.actual .nombre:before { content: "\25B6  "; color: #ff5a66; }
+  .tile:hover { transform: translateY(-0.3rem); }
+  .tile:hover .logo { border-color: #ffd166; }
+
+  /* Cambiar de canal: ▲ ▼ juntos para dejar la flecha encima y apretar OK varias veces */
+  #zapping { display: flex; flex-direction: column; }
+  .zap { width: 7.4rem; height: 2.75rem; margin-top: 0.35rem; border-radius: 0.5rem; border: 0.15rem solid transparent;
+         background: #e63946; font-size: 0.85rem; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+  .zap i { font-style: normal; font-size: 1.15rem; margin-right: 0.45rem; }
+  .zap:hover { background: #ff5a66; border-color: #ffd166; }
+  .zap:first-child { margin-top: 0; }
+
+  /* Cargando y sin señal, al centro */
+  #cargando, #error { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); text-align: center; }
+  #cargando { display: none; }
+  body.cargando #cargando { display: block; }
+  .rueda { width: 3.2rem; height: 3.2rem; margin: 0 auto 0.8rem auto; border-radius: 50%;
+           border: 0.32rem solid rgba(255, 255, 255, 0.2); border-top-color: #ffd166; animation: girar 0.9s linear infinite; }
+  @keyframes girar { to { transform: rotate(360deg); } }
+  #cargandoTxt { font-size: 0.95rem; text-shadow: 0 0.1rem 0.4rem #000; }
+  #error { display: none; background: rgba(8, 14, 26, 0.92); border-radius: 0.7rem; padding: 1.2rem 1.6rem; width: 30rem; }
+  body.error #error { display: block; }
+  #errorTitulo { font-size: 1.2rem; font-weight: bold; margin-bottom: 0.4rem; }
+  #errorTxt { font-size: 0.8rem; color: #c9d4e3; margin-bottom: 1rem; }
+  .btn { font-size: 0.85rem; font-weight: bold; padding: 0.6rem 1.1rem; margin: 0 0.3rem; border-radius: 0.45rem;
+         background: #22344f; border: 0.15rem solid transparent; }
+  .btn:hover { border-color: #ffd166; background: #2f4a72; }
+</style>
+</head>
+<body class="menu">
+  <video id="video" autoplay></video>
+
+  <div id="cargando"><div class="rueda"></div><div id="cargandoTxt">Conectando…</div></div>
+
+  <div id="error">
+    <div id="errorTitulo">Sin señal</div>
+    <div id="errorTxt">Este canal no está transmitiendo en este momento.</div>
+    <button class="btn" id="btnReintentar">↻ Reintentar</button>
+    <button class="btn" id="btnOtro">▲ Siguiente canal</button>
+  </div>
+
+  <div id="info" class="capa">
+    <div class="logo"><img id="infoLogo" alt=""></div>
+    <div id="infoNum">1</div>
+    <div>
+      <div id="infoNombre">Señal Chile</div>
+      <div id="infoDetalle"><span class="vivo">● EN VIVO</span> <span id="infoCalidad"></span> <span id="infoNota"></span></div>
+    </div>
+  </div>
+
+  <div id="arriba" class="capa">
+    <div id="reloj">--:--</div>
+    <button id="btnCompleta">⛶ Pantalla completa</button>
+  </div>
+
+  <div id="barra" class="capa">
+    <div id="consejo">Consejo: deja la flecha sobre ▲ o ▼ y presiona OK para pasar de un canal a otro.</div>
+    <div id="fila">
+      <div id="tiles"></div>
+      <div id="zapping">
+        <button class="zap" id="btnMas"><i>▲</i>Canal +</button>
+        <button class="zap" id="btnMenos"><i>▼</i>Canal −</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="canales.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
